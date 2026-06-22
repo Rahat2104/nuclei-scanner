@@ -4,11 +4,45 @@ import os
 import json
 from datetime import datetime
 from urllib.parse import urlparse
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
 RESULTS_DIR = "results"
+TEMPLATE_DIR = "scanner-templates"
+TEMPLATE_FILE = os.path.join(TEMPLATE_DIR, "basic-http-check.yaml")
+
 os.makedirs(RESULTS_DIR, exist_ok=True)
+os.makedirs(TEMPLATE_DIR, exist_ok=True)
+
+
+def create_basic_template():
+    template_content = """id: basic-http-check
+
+info:
+  name: Basic HTTP Response Check
+  author: student
+  severity: info
+  description: Checks whether the target website responds successfully.
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+
+    matchers:
+      - type: status
+        status:
+          - 200
+          - 301
+          - 302
+          - 403
+"""
+    with open(TEMPLATE_FILE, "w", encoding="utf-8") as file:
+        file.write(template_content)
+
+
+create_basic_template()
 
 
 def valid_url(url):
@@ -65,12 +99,14 @@ def scan():
     cmd = [
         "nuclei",
         "-u", target,
+        "-t", TEMPLATE_FILE,
         "-json-export", output_path,
         "-silent",
         "-c", "1",
         "-rate-limit", "2",
         "-timeout", "5",
-        "-retries", "1"
+        "-retries", "1",
+        "-disable-update-check"
     ]
 
     try:
@@ -78,7 +114,7 @@ def scan():
             cmd,
             capture_output=True,
             text=True,
-            timeout=180
+            timeout=120
         )
 
         results = read_json_results(output_path)
@@ -94,6 +130,7 @@ def scan():
 
         for item in results:
             severity = item.get("info", {}).get("severity", "unknown").lower()
+
             if severity in severity_count:
                 severity_count[severity] += 1
             else:
@@ -106,7 +143,8 @@ def scan():
             severity_count=severity_count,
             filename=filename,
             total_findings=len(results),
-            scan_error=scan_process.stderr
+            scan_error=scan_process.stderr,
+            scan_output=scan_process.stdout
         )
 
     except subprocess.TimeoutExpired:
@@ -124,7 +162,8 @@ def scan():
 
 @app.route("/reports/<filename>")
 def download_report(filename):
-    return send_from_directory(RESULTS_DIR, filename, as_attachment=True)
+    safe_filename = secure_filename(filename)
+    return send_from_directory(RESULTS_DIR, safe_filename, as_attachment=True)
 
 
 if __name__ == "__main__":
