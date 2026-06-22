@@ -2,77 +2,92 @@
 <html>
 <head>
     <title>Nuclei Security Scanner</title>
+
     <style>
         body {
             margin: 0;
             font-family: Arial, sans-serif;
-            background: #1e1e1e;
-            color: #f5f5f5;
+            background: #1b1b1b;
+            color: #f4f4f4;
         }
 
         .container {
             width: 90%;
-            max-width: 1100px;
+            max-width: 1150px;
             margin: 40px auto;
-        }
-
-        .card {
-            background: #2b2b2b;
-            padding: 25px;
-            border-radius: 14px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.4);
-            margin-bottom: 25px;
         }
 
         h1 {
             text-align: center;
+            font-size: 38px;
+            margin-bottom: 10px;
         }
 
         .subtitle {
             text-align: center;
-            color: #bbbbbb;
-            margin-bottom: 30px;
+            color: #cccccc;
+            margin-bottom: 35px;
+            font-size: 18px;
+        }
+
+        .card {
+            background: #2d2d2d;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 0 18px rgba(0,0,0,0.4);
+            margin-bottom: 25px;
         }
 
         form {
             display: flex;
-            gap: 10px;
+            gap: 12px;
         }
 
         input {
             flex: 1;
-            padding: 14px;
+            padding: 15px;
             border-radius: 8px;
             border: none;
             font-size: 16px;
         }
 
         button {
-            padding: 14px 24px;
+            padding: 15px 28px;
             border: none;
             border-radius: 8px;
-            background: #444;
+            background: #4a4a4a;
             color: white;
-            cursor: pointer;
             font-size: 16px;
+            cursor: pointer;
         }
 
         button:hover {
-            background: #666;
+            background: #666666;
+        }
+
+        .warning {
+            background: #3b3320;
+            border-left: 5px solid #d6a400;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #ffe9a6;
         }
 
         .error {
-            background: #5c1f1f;
-            color: #ffcccc;
-            padding: 12px;
+            background: #4a1f1f;
+            border-left: 5px solid #ff5b5b;
+            padding: 15px;
             border-radius: 8px;
             margin-top: 15px;
+            color: #ffd1d1;
         }
 
         .summary {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 15px;
+            margin-top: 20px;
         }
 
         .summary-box {
@@ -84,65 +99,84 @@
 
         .summary-box h2 {
             margin: 0;
-            font-size: 28px;
+            font-size: 30px;
         }
 
         .summary-box p {
-            margin: 5px 0 0;
-            color: #ccc;
+            margin: 8px 0 0;
+            color: #cccccc;
             text-transform: capitalize;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            background: #262626;
-        }
-
-        th, td {
-            padding: 12px;
-            border-bottom: 1px solid #444;
-            text-align: left;
-        }
-
-        th {
-            background: #333;
-        }
-
-        tr:hover {
-            background: #363636;
-        }
-
-        a {
-            color: #dddddd;
         }
 
         .report-btn {
             display: inline-block;
             margin-top: 15px;
             padding: 12px 18px;
-            background: #444;
+            background: #4a4a4a;
             color: white;
             text-decoration: none;
             border-radius: 8px;
         }
 
         .report-btn:hover {
-            background: #666;
+            background: #666666;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #252525;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #444444;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            background: #333333;
+        }
+
+        tr:hover {
+            background: #353535;
+        }
+
+        .footer {
+            text-align: center;
+            color: #999999;
+            margin-top: 30px;
+            font-size: 14px;
+        }
+
+        @media (max-width: 700px) {
+            form {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
         }
     </style>
 </head>
+
 <body>
 
 <div class="container">
 
     <h1>Nuclei Security Scanner</h1>
-    <p class="subtitle">Cloud-based vulnerability scanner using Flask, Docker, Render, and Nuclei</p>
+    <p class="subtitle">Cloud-Based Vulnerability Scanner using GitHub, Render, Docker, Flask, and Nuclei</p>
+
+    <div class="warning">
+        Only scan websites that you own or have permission to test.
+    </div>
 
     <div class="card">
         <form action="/scan" method="post">
-            <input name="target" placeholder="https://example.com" required>
+            <input name="target" placeholder="Example: https://example.com" required>
             <button type="submit">Start Scan</button>
         </form>
 
@@ -155,6 +189,7 @@
     <div class="card">
         <h2>Scan Report</h2>
         <p><strong>Target:</strong> {{ target }}</p>
+        <p><strong>Total Findings:</strong> {{ total_findings }}</p>
 
         {% if filename %}
             <a class="report-btn" href="/reports/{{ filename }}">Download JSON Report</a>
@@ -179,12 +214,12 @@
 
     {% if results %}
     <div class="card">
-        <h2>Findings</h2>
+        <h2>Vulnerability Findings</h2>
 
         <table>
             <tr>
                 <th>Severity</th>
-                <th>Name</th>
+                <th>Vulnerability Name</th>
                 <th>Template ID</th>
                 <th>Matched URL</th>
             </tr>
@@ -202,9 +237,20 @@
     {% elif target %}
     <div class="card">
         <h2>No Findings</h2>
-        <p>The scan completed, but Nuclei did not return any findings for this target.</p>
+        <p>The scan completed, but Nuclei did not find any vulnerabilities for this target.</p>
     </div>
     {% endif %}
+
+    {% if scan_error %}
+    <div class="card">
+        <h2>Scanner Log</h2>
+        <pre>{{ scan_error }}</pre>
+    </div>
+    {% endif %}
+
+    <p class="footer">
+        Architecture: User → Web Interface → Flask API → Nuclei Scanner → JSON Results → Dashboard + Reports
+    </p>
 
 </div>
 
