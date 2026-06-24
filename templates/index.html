@@ -1095,13 +1095,16 @@
                     </div>
 
                     {% if output_file %}
-                    <div class="download-row">
-                        <a class="download-btn" href="/download/{{ output_file }}">
-                            Download JSONL Report
-                        </a>
-                    </div>
-                    {% endif %}
-                </div>
+<div class="report-actions">
+    <a class="download-btn" href="/download/{{ output_file }}">
+        Download JSONL Report
+    </a>
+
+    <a class="download-btn pdf-btn" href="/pdf/{{ output_file }}?target={{ target|urlencode }}">
+        Download PDF Report
+    </a>
+</div>
+{% endif %}
 
                 <div class="status">
                     <span class="dot"></span>
