@@ -1,6 +1,11 @@
-from io import BytesIO
 from flask import Flask, request, render_template, send_from_directory, make_response
+import subprocess
+import os
+import time
+import json
+from io import BytesIO
 from xml.sax.saxutils import escape
+from werkzeug.utils import secure_filename
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -9,7 +14,7 @@ app = Flask(__name__)
 
 RESULTS_DIR = "results"
 HISTORY_FILE = os.path.join(RESULTS_DIR, "scan_history.json")
-MAX_HISTORY = 30
+MAX_HISTORY = 20
 
 
 def normalize_severity(value):
