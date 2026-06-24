@@ -5,6 +5,7 @@ import time
 import json
 from io import BytesIO
 from xml.sax.saxutils import escape
+from urllib.parse import urlparse
 from werkzeug.utils import secure_filename
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -17,12 +18,16 @@ HISTORY_FILE = os.path.join(RESULTS_DIR, "scan_history.json")
 MAX_HISTORY = 20
 
 
+def valid_url(url):
+    parsed = urlparse(url)
+    return parsed.scheme in ["http", "https"] and parsed.netloc
+
+
 def normalize_severity(value):
     if not value:
         return "info"
 
     value = str(value).lower().strip()
-
     valid_levels = ["critical", "high", "medium", "low", "info"]
 
     if value in valid_levels:
@@ -32,13 +37,6 @@ def normalize_severity(value):
 
 
 def classify_severity(finding):
-    """
-    This function makes sure severity never becomes blank.
-
-    First, it uses Nuclei's own severity if Nuclei provides one.
-    If Nuclei only gives 'info', it estimates the severity based on the finding text.
-    """
-
     native_severity = normalize_severity(
         finding.get("info", {}).get("severity", "info")
     )
@@ -141,7 +139,9 @@ def classify_severity(finding):
         "whois",
         "dns",
         "fingerprint",
-        "info"
+        "info",
+        "website response check",
+        "security.txt"
     ]
 
     for keyword in critical_keywords:
@@ -185,7 +185,6 @@ def build_severity_data(findings):
             severity_count["info"] += 1
 
     total = len(findings)
-
     severity_data = []
 
     for level in ["critical", "high", "medium", "low", "info"]:
@@ -202,11 +201,6 @@ def build_severity_data(findings):
 
 
 def generate_ai_explanation(finding):
-    """
-    Local AI-style explanation generator.
-    It explains each finding in simple language without requiring an external API key.
-    """
-
     header = finding.get("matcher-name", "").lower().strip()
     severity = finding.get("display_severity", "info")
     template_name = finding.get("info", {}).get("name", "Security finding")
@@ -288,6 +282,32 @@ def generate_ai_explanation(finding):
         f"{description if description else 'Review the finding and confirm whether it affects the target application.'}"
     )
 
+
+def process_finding(finding):
+    display_severity = classify_severity(finding)
+    finding["display_severity"] = display_severity
+    finding["ai_explanation"] = generate_ai_explanation(finding)
+    return finding
+
+
+def read_findings_from_jsonl(file_path):
+    findings = []
+
+    if not os.path.exists(file_path):
+        return findings
+
+    with open(file_path, "r", encoding="utf-8") as file:
+        for line in file:
+            if line.strip():
+                try:
+                    finding = json.loads(line)
+                    findings.append(process_finding(finding))
+                except json.JSONDecodeError:
+                    pass
+
+    return findings
+
+
 def load_scan_history():
     if not os.path.exists(HISTORY_FILE):
         return []
@@ -337,29 +357,6 @@ def add_scan_history(target, output_file, findings, severity_data):
     save_scan_history(history)
 
     return history
-    
-@app.route("/pdf/<filename>")
-def download_pdf_report(filename):
-    safe_filename = secure_filename(filename)
-    file_path = os.path.join(RESULTS_DIR, safe_filename)
-
-    if not os.path.exists(file_path):
-        return "PDF report could not be generated because the JSONL result file was not found.", 404
-
-    target = request.args.get("target", "Unknown target")
-
-    findings = read_findings_for_pdf(file_path)
-    severity_data = build_severity_data(findings)
-
-    pdf_buffer = generate_pdf_report(target, findings, severity_data)
-
-    pdf_filename = safe_filename.replace(".jsonl", ".pdf")
-
-    response = make_response(pdf_buffer.getvalue())
-    response.headers["Content-Type"] = "application/pdf"
-    response.headers["Content-Disposition"] = f"attachment; filename={pdf_filename}"
-
-    return response
 
 
 def safe_pdf_text(value):
@@ -447,13 +444,13 @@ def generate_pdf_report(target, findings, severity_data):
         for index, finding in enumerate(findings, start=1):
             severity = severity_display_name(finding.get("display_severity", "info"))
             template_name = finding.get("info", {}).get("name", "Security Finding")
-            missing_header = finding.get("matcher-name", "N/A")
+            detected_item = finding.get("matcher-name", "N/A")
             matched_url = finding.get("matched-at", target)
             explanation = finding.get("ai_explanation", "No explanation available.")
 
             story.append(Paragraph(f"Finding {index}: {safe_pdf_text(template_name)}", heading_style))
             story.append(Paragraph(f"<b>Severity:</b> {safe_pdf_text(severity)}", small_style))
-            story.append(Paragraph(f"<b>Detected Item:</b> {safe_pdf_text(missing_header)}", small_style))
+            story.append(Paragraph(f"<b>Detected Item:</b> {safe_pdf_text(detected_item)}", small_style))
             story.append(Paragraph(f"<b>URL:</b> {safe_pdf_text(matched_url)}", small_style))
             story.append(Paragraph(f"<b>Explanation:</b> {safe_pdf_text(explanation)}", small_style))
             story.append(Spacer(1, 8))
@@ -465,69 +462,84 @@ def generate_pdf_report(target, findings, severity_data):
     ))
 
     document.build(story)
-
     buffer.seek(0)
+
     return buffer
+
+
+@app.route("/")
 def home():
     return render_template(
         "index.html",
         scan_history=load_scan_history()
     )
 
+
 @app.route("/scan", methods=["POST"])
 def scan():
-    target = request.form["target"]
+    target = request.form.get("target", "").strip()
+
+    if not valid_url(target):
+        return render_template(
+            "index.html",
+            scan_history=load_scan_history(),
+            error="Please enter a valid URL starting with http:// or https://"
+        )
 
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
     output_filename = f"output_{int(time.time())}.jsonl"
     output = os.path.join(RESULTS_DIR, output_filename)
 
+    templates = [
+        "/root/nuclei-templates/http/misconfiguration/http-missing-security-headers.yaml",
+        "scanner-templates/basic-http-check.yaml",
+        "scanner-templates/security-txt-check.yaml"
+    ]
+
     cmd = [
-    "nuclei",
-    "-u", target,
+        "nuclei",
+        "-u", target
+    ]
 
-    "-t", "/root/nuclei-templates/http/misconfiguration/http-missing-security-headers.yaml",
+    for template in templates:
+        if template.startswith("/root/") or os.path.exists(template):
+            cmd.extend(["-t", template])
 
-    "-t", "scanner-templates/basic-http-check.yaml",
-
-    "-t", "scanner-templates/security-txt-check.yaml",
-
-    "-jsonl",
-    "-o", output,
-    "-c", "1",
-    "-rl", "1",
-    "-timeout", "10",
-    "-retries", "0",
-    "-silent",
-    "-duc"
-]
+    cmd.extend([
+        "-jsonl",
+        "-o", output,
+        "-c", "1",
+        "-rl", "1",
+        "-timeout", "10",
+        "-retries", "0",
+        "-silent",
+        "-duc"
+    ])
 
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=40)
+        scan_result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=45
+        )
+
+    except subprocess.TimeoutExpired:
+        return render_template(
+            "index.html",
+            scan_history=load_scan_history(),
+            error="The scan timed out. Try a smaller or faster target."
+        )
+
     except Exception as e:
-        return f"Scan error: {e}"
+        return render_template(
+            "index.html",
+            scan_history=load_scan_history(),
+            error=f"Scan error: {str(e)}"
+        )
 
-    findings = []
-
-    if os.path.exists(output):
-        with open(output, encoding="utf-8") as f:
-            for line in f:
-                if line.strip():
-                    try:
-                        finding = json.loads(line)
-
-                        display_severity = classify_severity(finding)
-                        finding["display_severity"] = display_severity
-
-                        ai_explanation = generate_ai_explanation(finding)
-                        finding["ai_explanation"] = ai_explanation
-
-                        findings.append(finding)
-
-                    except json.JSONDecodeError:
-                        pass
-
+    findings = read_findings_from_jsonl(output)
     severity_data = build_severity_data(findings)
     scan_history = add_scan_history(target, output_filename, findings, severity_data)
 
@@ -535,7 +547,7 @@ def scan():
         "index.html",
         target=target,
         findings=findings,
-        stderr=r.stderr,
+        stderr=scan_result.stderr,
         output_file=output_filename,
         severity_data=severity_data,
         scan_history=scan_history
@@ -547,6 +559,7 @@ def download_result(filename):
     safe_filename = secure_filename(filename)
     return send_from_directory(RESULTS_DIR, safe_filename, as_attachment=True)
 
+
 @app.route("/pdf/<filename>")
 def download_pdf_report(filename):
     safe_filename = secure_filename(filename)
@@ -557,11 +570,10 @@ def download_pdf_report(filename):
 
     target = request.args.get("target", "Unknown target")
 
-    findings = read_findings_for_pdf(file_path)
+    findings = read_findings_from_jsonl(file_path)
     severity_data = build_severity_data(findings)
 
     pdf_buffer = generate_pdf_report(target, findings, severity_data)
-
     pdf_filename = safe_filename.replace(".jsonl", ".pdf")
 
     response = make_response(pdf_buffer.getvalue())
@@ -569,6 +581,7 @@ def download_pdf_report(filename):
     response.headers["Content-Disposition"] = f"attachment; filename={pdf_filename}"
 
     return response
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
