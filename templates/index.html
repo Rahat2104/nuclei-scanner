@@ -1207,7 +1207,50 @@
             {% endif %}
         </section>
         {% endif %}
+                {% if scan_history %}
+        <section class="history-card" id="history">
+            <div class="history-top">
+                <div>
+                    <div class="section-label">Stored Scans</div>
+                    <h2>Scan History</h2>
+                </div>
 
+                <div class="history-note">
+                    Recent scan records are stored in the Render container as lightweight JSON metadata. On Render Free, history may reset after redeploy or restart.
+                </div>
+            </div>
+
+            <div class="history-list">
+                {% for item in scan_history %}
+                <div class="history-item">
+                    <div>
+                        <div class="history-target">{{ item.target }}</div>
+                        <div class="history-date">{{ item.created_at }}</div>
+                    </div>
+
+                    <div class="history-stat">
+                        <strong>{{ item.total_findings }}</strong><br>
+                        Total Findings
+                    </div>
+
+                    <div class="history-severity">
+                        Critical: {{ item.severity_counts.get("critical", 0) }} |
+                        High: {{ item.severity_counts.get("high", 0) }} |
+                        Medium: {{ item.severity_counts.get("medium", 0) }} |
+                        Low: {{ item.severity_counts.get("low", 0) }} |
+                        Advisory: {{ item.severity_counts.get("advisory", 0) }}
+                    </div>
+
+                    <div>
+                        <a class="history-download" href="/download/{{ item.output_file }}">
+                            Download JSONL
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
         <div class="footer">
             <strong>Architecture:</strong> User → Web Interface → Flask API → Nuclei Scanner → JSONL Results → Dashboard
         </div>
