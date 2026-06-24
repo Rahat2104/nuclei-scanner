@@ -1,10 +1,10 @@
 id: basic-http-check
 
 info:
-  name: Basic HTTP Response Check
+  name: Website Responded - Demo Security Check
   author: student
   severity: info
-  description: Checks whether the target website responds successfully.
+  description: The target website responded. This is a demo check for the cloud scanner.
 
 http:
   - method: GET
@@ -12,9 +12,6 @@ http:
       - "{{BaseURL}}"
 
     matchers:
-      - type: status
-        status:
-          - 200
-          - 301
-          - 302
-          - 403
+      - type: dsl
+        dsl:
+          - "status_code >= 100 && status_code < 600"
