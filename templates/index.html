@@ -980,6 +980,31 @@
                     <div class="stat-label">Scanner Engine</div>
                 </div>
             </div>
+                        {% if severity_data %}
+            <div class="severity-chart">
+                <div class="severity-chart-title">
+                    <h3>Severity Overview</h3>
+                    <span>Severity is based on Nuclei output and custom security-header impact mapping</span>
+                </div>
+
+                {% for item in severity_data %}
+                <div class="severity-row">
+                    <div class="severity-name">
+                        <span class="severity-dot-small severity-dot-{{ item.level }}"></span>
+                        {{ item.level }}
+                    </div>
+
+                    <div class="severity-bar">
+                        <span class="severity-fill severity-fill-{{ item.level }}" style="width: {{ item.percent }}%;"></span>
+                    </div>
+
+                    <div class="severity-count">
+                        {{ item.count }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
 
             {% if findings %}
             <div class="table-shell">
