@@ -1,22 +1,23 @@
 FROM projectdiscovery/nuclei:latest
 
+USER root
+
 RUN apk add --no-cache python3 py3-pip
 
 WORKDIR /app
 
 COPY . .
 
-RUN python3 -m venv /app/venv
-RUN /app/venv/bin/pip install --upgrade pip
-RUN /app/venv/bin/pip install -r requirements.txt
+RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
 
-RUN mkdir -p /app/results
+RUN mkdir -p results
 
-# Download/update Nuclei templates during build
-RUN nuclei -ut || true
+RUN nuclei -update-templates || true
 
-EXPOSE 10000
+ENV PORT=10000
 
 ENTRYPOINT []
 
-CMD /app/venv/bin/gunicorn app:app --bind 0.0.0.0:${PORT:-10000} --workers 1 --timeout 360
+EXPOSE 10000
+
+CMD gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 360
