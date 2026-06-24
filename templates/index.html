@@ -829,6 +829,105 @@
             h1 {
                 letter-spacing: -2px;
             }
+                    .history-card {
+            margin-top: 28px;
+            padding: 26px;
+            border: 1px solid var(--border);
+            background: rgba(11, 11, 11, 0.72);
+            box-shadow: var(--shadow);
+            border-radius: 26px;
+            backdrop-filter: blur(16px);
+        }
+
+        .history-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .history-top h2 {
+            margin: 0;
+            font-size: 30px;
+            letter-spacing: -1px;
+        }
+
+        .history-note {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.6;
+            max-width: 520px;
+        }
+
+        .history-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .history-item {
+            display: grid;
+            grid-template-columns: 1.2fr 0.7fr 0.7fr auto;
+            gap: 14px;
+            align-items: center;
+            padding: 16px;
+            border: 1px solid var(--border);
+            background: #070707;
+            border-radius: 18px;
+        }
+
+        .history-target {
+            color: white;
+            font-weight: 800;
+            font-size: 14px;
+            word-break: break-all;
+        }
+
+        .history-date {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .history-stat {
+            color: var(--muted-2);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .history-stat strong {
+            color: var(--accent);
+            font-size: 18px;
+        }
+
+        .history-severity {
+            color: var(--muted-2);
+            font-size: 12px;
+            line-height: 1.8;
+        }
+
+        .history-download {
+            display: inline-flex;
+            text-decoration: none;
+            border-radius: 12px;
+            padding: 10px 12px;
+            background: var(--accent);
+            color: #0a0a0a;
+            font-size: 12px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .history-download:hover {
+            background: #ffdab8;
+        }
+
+        @media (max-width: 900px) {
+            .history-item {
+                grid-template-columns: 1fr;
+            }
+        
         }
 
         @media (max-width: 650px) {
